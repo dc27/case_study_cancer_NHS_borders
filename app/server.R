@@ -19,6 +19,26 @@ server <- function(input, output) {
       userIn_sex = reactive(input$sex_choice)
     )
   )
+  tabInput_graph <- reactive ({
+    switch(input$mainPanel,
+           "plot" = "plot")
+  })
+  
+  tabInput_map <- reactive({
+    switch(input$mainPanel,
+           "map" = "map")
+  })
+  
+  output$graph_tab <- reactive({
+    tabInput_graph()
+  })
+  
+  output$map_tab <- reactive ({
+    tabInput_map()
+  })
+  
+  outputOptions(output, "graph_tab", suspendWhenHidden = FALSE)
+  outputOptions(output, "map_tab", suspendWhenHidden = FALSE)  
   
   output$basic_plot <-
       renderPlot(
@@ -29,14 +49,16 @@ server <- function(input, output) {
       ggplot() +
         theme_bw()
     })
-  filtered_cancer_data_for_map <- reactive(
+  
+  filtered_cancer_data_for_map <- eventReactive(
+    input$replot_map, ignoreNULL = FALSE, {
     filter_cancer_data_for_map(
       data = cancer_data_by_HB,
       userIn_cancer_site = reactive(input$cancer_site_choice),
       userIn_sex = reactive(input$sex_choice),
       userIn_metric = reactive(input$measurement_choice_radio),
       userIn_year = reactive(input$year_choice)
-    )
+    )}
   )
   
   output$cancer_stats_map <-

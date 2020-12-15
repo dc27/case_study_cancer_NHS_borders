@@ -85,8 +85,7 @@ cancer_data_tidy <- cancer_data_by_HB %>%
          -wasr_upper95pc_confidence_interval_qf,
          -sex_qf) %>% 
   filter(cancer_site == "All cancer types") %>% 
-  filter(sex == "All") %>% 
-  filter(hb == "S08000015")
+  filter(sex == "All")
 ```
 
 ```{r}
@@ -96,7 +95,7 @@ cancer_data_crude <- cancer_data_long %>%
 cancer_data_easr <- cancer_data_long %>% 
   filter(measurement == "EASR")
 
-cancer_data_wasr <- cancer_data_long %>% 
+cancer_data_wasr <- cancer_data_tidy %>% 
   filter(measurement == "WASR") %>% 
   filter(year == "1994")
 
@@ -159,6 +158,11 @@ cancer_data_by_HB %>%
 ```
 
 ```{r}
+library(rgdal)
+```
+
+
+```{r}
 hb_shapes <- readOGR(
   dsn ="data/shapefiles/SG_NHS_HealthBoards_2019/",
   layer = "SG_NHS_HealthBoards_2019",
@@ -174,6 +178,61 @@ hb_shapes_ll <- hb_shapes %>%
 hb_shapes@polygons <- hb_shapes_ll@polygons
 ```
 
+
+```{r}
+hb_shapes@data <- hb_shapes@data %>% 
+  inner_join(cancer_data_wasr, by = c("HBCode" = "hb"))
+```
+
+```{r}
+hb_shapes@data$id <- rownames(hb_shapes@data)
+
+hb_shapes@data
+```
+
+```{r}
+library(maptools)
+```
+
+
+```{r}
+hb_shapes_points <- fortify(hb_shapes, region = "id")
+```
+
+```{r}
+hb_shapes_df = inner_join(hb_shapes_points, hb_shapes@data, by = "id")
+```
+
+```{r}
+hb_shapes_df %>% 
+  distinct(group.y)
+```
+
+```{r}
+library(plotly)
+```
+
+
+```{r}
+ggplotly(
+  hb_shapes_df %>% 
+    ggplot() +
+      aes(long, lat, group = `group.x`, fill = -value,
+          text = paste(HBName, "\n", round(value, 2), sep = "")) +
+      geom_polygon(colour = "grey20") +
+      scale_fill_distiller(type = "div", palette = "YlOrRd") +
+      labs(fill = "CRUDE RATE") +
+      theme_bw() +
+      coord_cartesian() +
+      xlim(-14, 4) + 
+      theme_void() +
+      theme(axis.ticks = element_blank()),
+  tooltip = "text"
+) %>% 
+  layout(xaxis = list(fixedrange = TRUE), yaxis = list(fixedrange = TRUE)) 
+  
+
+```
 
 
 cancer_site = body location of cancer

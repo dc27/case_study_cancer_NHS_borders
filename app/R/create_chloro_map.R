@@ -1,6 +1,6 @@
 create_chloro_map <- function (data) {
   hb_shapes@data <- hb_shapes@data %>% 
-    inner_join(data, by = c("HBCode" = "hb"))
+    left_join(data, by = c("HBCode" = "hb"))
   
   # pretty labels
   labels <- sprintf("<strong>%s</strong><br/>%g",
@@ -19,11 +19,14 @@ create_chloro_map <- function (data) {
     addProviderTiles(providers$CartoDB.PositronNoLabels) %>% 
     # add Health Board polygons, colour based on LE, highlight on hover
     addPolygons(data = hb_shapes, color = "white",
-                fillColor = ~colorQuantile(
+                fillColor = ~colorNumeric(
                   "YlOrRd", (hb_shapes$value))
                 (hb_shapes$value),
                 weight = 1, fillOpacity = 0.9, label = labels,
                 highlightOptions = highlightOptions(
                   color = "white", weight = 2,
-                  opacity = 0.9, bringToFront = TRUE))
+                  opacity = 0.9, bringToFront = TRUE)) %>% 
+    addLegend(pal = colorNumeric("YlOrRd", domain = hb_shapes$value),
+              values = hb_shapes$value, opacity = 0.7, title = "Cancer Incidence",
+              position = "bottomright")
 }

@@ -1,25 +1,26 @@
 .main-header .logo {
-  font-family: "Georgia", Times, "Times New Roman", serif;
+  font-family: "Montserrat", serif;
   font-weight: bold;
   font-size: 24px;
 }
 
+#action_button {
+  float: center;
+  text-align: center;
+  
+}
 .col-sm-9 {
-  height: 800px;
+  height: 65rem;
 }
 
 .nav-tabs-custom {
-  height: inherit;
+  height: 100%;
 }
+
 .tab-content {
-  height: inherit;
+  height: 100%;
 }
 
 .tab-pane.active {
-  height: inherit;
+  height: 100%;
 }
-
-#cancer_stats_map.leaflet.html-widget.html-widget-output.shiny-bound-output.leaflet-container.leaflet-touch.leaflet-fade-anim.leaflet-grab.leaflet-touch-drag.leaflet-touch-zoom {
-  height: inherit;
-}
-
