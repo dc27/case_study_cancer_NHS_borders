@@ -56,9 +56,90 @@ cancer_data_by_HB %>%
   theme_bw()
 ```
 ```{r}
-cancer_data_by_HB %>% 
-  select(standardised_incidence_ratio)
+cancer_data_tidy <- cancer_data_by_HB %>% 
+  select(-cancer_site_icd10code) %>%
+  mutate(group = row_number()) %>% 
+  rename(sir = standardised_incidence_ratio) %>% 
+  pivot_longer(cols = -c(hb:incidences_all_ages,
+                       easr_lower95pc_confidence_interval_qf,
+                       easr_upper95pc_confidence_interval_qf,
+                       wasr_lower95pc_confidence_interval_qf,
+                       wasr_upper95pc_confidence_interval_qf,
+                       group),
+               names_pattern = "([^_]*)([_a-z0-9$]*)",
+               names_to = c("measurement", "limit")) %>%
+  mutate(limit = recode(limit, "_rate" = "")) %>% 
+  mutate(limit = case_when(
+    str_detect(limit, "lower") ~ "lower_95pc_c_i",
+    str_detect(limit, "upper") ~ "upper_95pc_c_i",
+    limit == "" ~ "value",
+    TRUE ~ limit)
+  ) %>% 
+  pivot_wider(id_cols = -c(limit,value), names_from = limit,
+              values_from = value, names_repair = "check_unique") %>% 
+  mutate(measurement = str_to_upper(measurement)) %>% 
+  filter(incidences_all_ages > 20) %>% 
+  select(-easr_lower95pc_confidence_interval_qf,
+         -easr_upper95pc_confidence_interval_qf,
+         -wasr_lower95pc_confidence_interval_qf,
+         -wasr_upper95pc_confidence_interval_qf,
+         -sex_qf) %>% 
+  filter(cancer_site == "All cancer types") %>% 
+  filter(sex == "All") %>% 
+  filter(hb == "S08000015")
 ```
+
+```{r}
+cancer_data_crude <- cancer_data_long %>% 
+  filter(measurement == "CRUDE")
+
+cancer_data_easr <- cancer_data_long %>% 
+  filter(measurement == "EASR")
+
+cancer_data_wasr <- cancer_data_long %>% 
+  filter(measurement == "WASR") %>% 
+  filter(year == "1994")
+
+cancer_data_sir <- cancer_data_long %>% 
+  filter(measurement == "SIR")
+```
+
+```{r}
+init_plot <-
+  ggplot() +
+  aes(x = year)
+
+make_line_plot <- function (data, plot) {
+  p <- plot +
+  geom_line(data = data,
+            aes(y = value)) +
+  geom_ribbon(data = data,
+              aes(ymin = lower_95pc_c_i,
+                  ymax = upper_95pc_c_i), alpha = 0.2)
+  return(p)
+}
+
+crude_plot <- make_line_plot(cancer_data_crude, init_plot)
+
+crude_plot
+
+```
+
+```{r}
+make_line_plot(cancer_data_easr, crude_plot)
+```
+
+```{r}
+make_line_plot(cancer_data_wasr)
+```
+
+```{r}
+make_line_plot(cancer_data_sir)
+```
+
+```{r}
+```
+
 
 ```{r}
 cancer_data_by_HB %>%
@@ -75,6 +156,22 @@ cancer_data_by_HB %>%
         ymax = sir_upper95pc_confidence_interval), fill = "coral", alpha = 0.2
   ) +
   theme_bw()
+```
+
+```{r}
+hb_shapes <- readOGR(
+  dsn ="data/shapefiles/SG_NHS_HealthBoards_2019/",
+  layer = "SG_NHS_HealthBoards_2019",
+  GDAL1_integer64_policy = TRUE)
+
+crs <- CRS("+proj=longlat +datum=WGS84")
+
+# transform shape data to plot on map
+hb_shapes_ll <- hb_shapes %>% 
+  rgeos::gSimplify(tol=25, topologyPreserve=TRUE) %>% 
+  spTransform(crs)
+
+hb_shapes@polygons <- hb_shapes_ll@polygons
 ```
 
 

@@ -1,0 +1,25 @@
+.main-header .logo {
+  font-family: "Georgia", Times, "Times New Roman", serif;
+  font-weight: bold;
+  font-size: 24px;
+}
+
+.col-sm-9 {
+  height: 800px;
+}
+
+.nav-tabs-custom {
+  height: inherit;
+}
+.tab-content {
+  height: inherit;
+}
+
+.tab-pane.active {
+  height: inherit;
+}
+
+#cancer_stats_map.leaflet.html-widget.html-widget-output.shiny-bound-output.leaflet-container.leaflet-touch.leaflet-fade-anim.leaflet-grab.leaflet-touch-drag.leaflet-touch-zoom {
+  height: inherit;
+}
+

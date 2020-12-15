@@ -1,27 +1,26 @@
-make_line_plot <- function (data) {
-  data %>% 
-    ggplot() +
-    aes(x = year) +
-    geom_line(
-      aes(y = crude_rate), size = 2
-    ) +
-    geom_ribbon(
-      aes(ymin = crude_rate_lower95pc_confidence_interval,
-          ymax = crude_rate_upper95pc_confidence_interval), fill = "grey", alpha = 0.5
-    ) +
-    geom_line(
-      aes(y = easr), colour = "blue"
-    ) +
-    geom_ribbon(
-      aes(ymin = easr_lower95pc_confidence_interval,
-          ymax = easr_upper95pc_confidence_interval), fill = "light blue", alpha = 0.2
-    ) +
-    geom_line(
-      aes(y = wasr), colour = "green"
-    ) +
-    geom_ribbon(
-      aes(ymin = wasr_lower95pc_confidence_interval,
-          ymax = wasr_upper95pc_confidence_interval), fill = "light green", alpha = 0.2
-    ) +
-    theme_bw()
+add_lines <- function (data, plot) {
+  p <- plot +
+    geom_line(data = data,
+              aes(y = value, group = measurement)) +
+    geom_ribbon(data = data,
+                aes(ymin = lower_95pc_c_i,
+                    ymax = upper_95pc_c_i), alpha = 0.2)
+  return(p)
 }
+
+
+create_line_plot <- function (data, measurements) {
+  plot <-
+    ggplot() +
+    aes(x = year)
+  
+  for (i in 1:length(measurements())) {
+    filtered_data <- data %>% 
+      filter(measurement == measurements()[i])
+    plot <- add_lines(filtered_data, plot)
+  }
+  plot <- plot +
+    theme_bw()
+  return(plot)
+}
+
