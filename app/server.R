@@ -42,7 +42,7 @@ server <- function(input, output) {
   
   output$basic_plot <-
       renderPlot(
-        if (length(input$measurement_choice)>0) {
+        if (length(input$measurement_choice) > 0) {
         create_line_plot(filtered_cancer_data(),
                        measurements = reactive(input$measurement_choice))
     } else {

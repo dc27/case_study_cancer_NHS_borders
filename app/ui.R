@@ -39,7 +39,7 @@ ui <- dashboardPage(
           condition = "output.map_tab",
           selectInput(
             inputId = "year_choice",
-            label = "Select Year:",
+            label = "Year:",
             choices = years,
             selected = "2008"
           )
