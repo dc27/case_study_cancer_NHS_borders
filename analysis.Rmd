@@ -3,6 +3,8 @@ title: "NHS Borders | Cancer Incidence Rates"
 output:
   html_document:
     df_print: paged
+    toc: TRUE
+    toc_float: TRUE
 ---
 
 ```{r, eval = TRUE, echo = FALSE, message = FALSE}
@@ -77,10 +79,11 @@ sum_incidences_per_cancer_site <- generate_sum_incidences_per_cancer_site(
 )
 ```
 
-### 1. What is the trend in cancer incidence over the period?
+### 1. What is the trend in cancer incidence over the period (1994 - 2018)?
 
-The overview looks only at all cancer types. First looking at the combination of
-all sexes
+One of the cancer sites listed in the data was "All cancer types". By filtering
+for this condition an overview of all cancer incidences for all sexes can be
+plotted:
 
 ```{r, eval = TRUE, echo = FALSE}
 cancer_data_borders %>% 
@@ -93,103 +96,148 @@ cancer_data_borders %>%
   ) +
   geom_line() +
   facet_wrap(~sex) +
-  theme_bw()
+  scale_x_continuous(breaks = c(1995,2000,2005,2010,2015)) +
+  theme_bw() +
+  labs(x = "Year",
+       y = "number of Cancer Incidences",
+       title = "Number of Cancer Incidences vs Year")
 ```
 
-And then at each sex separately:
+One of the variables was sex, so the same plot could be split into the two sexes
+for a more specific picture:
 
 ```{r, eval = TRUE, echo = FALSE}
 cancer_data_borders %>% 
   filter(cancer_site == "All cancer types") %>% 
   filter(sex != "All") %>% 
+  filter(measurement == "CRUDE") %>% 
   ggplot() +
   aes(
     x = year,
     y = incidences_all_ages
   ) +
   geom_line() +
-  facet_wrap(~sex) +
-  theme_bw()
+  facet_wrap(~sex, ncol = 1) +
+  scale_x_continuous(breaks = c(1995,2000,2005,2010,2015)) +
+  theme_bw() +
+  labs(x = "Year",
+       y = "number of Cancer Incidences",
+       title = "Number of Cancer Incidences vs Year")
+```
+
+Using total cancer incidences for each year provides a general overview. A more
+specific overview could use the crude rate, which is a measure which takes the
+population into account.
+
+```{r, eval = TRUE, echo = FALSE}
+cancer_data_borders %>% 
+  filter(cancer_site == "All cancer types") %>% 
+  filter(sex != "All") %>% 
+  filter(measurement == "CRUDE") %>%
+  ggplot() +
+  aes(
+    x = year,
+    y = value
+  ) +
+  geom_line() +
+  facet_wrap(~sex, ncol = 1) +
+  scale_x_continuous(breaks = c(1995,2000,2005,2010,2015)) +
+  theme_bw() +
+  labs(x = "Year",
+       y = "Crude Rate Value",
+       title = "Number of Cancer Incidences vs Year")
+```
+
+If it were the case that cancer incidence was increasing due to the nature of an
+increase in population alone, this line would be flat.
+
+### 2. Which types of cancer are the most common?
+
+After filtering the data, this table was generated. It shows the cancer site (
+type of cancer) and the number of recorded incidences for the period (1994 - 
+2018)
+
+```{r, eval = TRUE, echo = FALSE}
+generate_sum_incidences_per_cancer_site <- function(data, sex = "All", year = 1994) {
+  data %>% 
+  filter(cancer_site %in% specific_cancers) %>% 
+  filter(measurement == "CRUDE") %>% 
+  filter(sex == sex) %>% 
+  filter(year >= year) %>% 
+  group_by(cancer_site) %>% 
+  summarise(total_incidences = sum(incidences_all_ages), .groups = "drop_last")
+  }
 ```
 
 
-### 2. What types of cancer are the most common?
-
 ```{r, eval = TRUE, echo = FALSE}
-sum_incidences_per_cancer_site %>% 
+sum_incidences_per_cancer_site <- generate_sum_incidences_per_cancer_site(cancer_data_borders) %>% 
+  slice_max(total_incidences, n = 10) %>% 
   arrange(desc(total_incidences)) %>% 
   rename(`Cancer Site` = cancer_site,
          `Total Incidences` = total_incidences)
+
+sum_incidences_per_cancer_site
 ```
 
 ```{r, eval = TRUE, echo = FALSE}
 make_bar_plot <- function(data) {
   data %>% 
     ggplot() + 
-    aes(x = cancer_site,
-        y = total_incidences) +
+    aes(x = `Cancer Site`,
+        y = `Total Incidences`) +
     geom_col() +
     theme_bw() + 
     theme(axis.text.y = element_text(angle = 0, hjust = 1)) +
-    coord_flip()
+    coord_flip() +
+  labs(x = "Cancer Type",
+       y = "Total n of Incidences")
 }
 ```
 
-```{r, eval = TRUE, echo = FALSE}
-sum_incidences_per_cancer_site %>% 
-  make_bar_plot()
-```
-```{r, eval = TRUE, echo = FALSE}
-sum_incidences_per_cancer_site %>% 
-  slice_max(total_incidences, n = 10) %>% 
-  make_bar_plot()
-```
+The total number of incidences for each type of cancer recorded in the Borders
+can be represented graphically:
 
 ```{r, eval = TRUE, echo = FALSE}
+sum_incidences_per_cancer_site %>% 
+  make_bar_plot() 
+```
+
+For a more in depth understanding of the most common cancer types, the ten with
+the highest number of total incidences over the period (1994 - 2018) can be
+plotted:
+
+```{r, eval = TRUE, echo = FALSE}
+sum_incidences_per_cancer_site %>% 
+  slice_max(`Total Incidences`, n = 10) %>% 
+  make_bar_plot() +
+  ggtitle("10 Most Common Cancer Types")
+```
+
+To understand if there has been any change in the past decade, the data can be
+filtered and then replotted.
+
+This shows the 10 most common cancer types in the past decade only.
+
+```{r, eval = FALSE, echo = FALSE}
 sum_incidences_per_cancer_site_recent <- generate_sum_incidences_per_cancer_site(
   cancer_data_borders,
-  year = 2009
+  year = "2009"
 )
 ```
 
-```{r, eval = TRUE, echo = FALSE}
+```{r, eval = FALSE, echo = FALSE}
 sum_incidences_per_cancer_site_recent %>% 
-  make_bar_plot()
+  rename(`Cancer Site` = cancer_site,
+         `Total Incidences` = total_incidences) %>% 
+  slice_max(`Total Incidences`, n = 10) %>% 
+  make_bar_plot()+
+  ggtitle("10 Most Common Cancer Types (since 2009)")
 ```
 
-```{r, eval = TRUE, echo = FALSE}
-sum_incidences_per_cancer_site_recent %>% 
-  slice_max(total_incidences, n = 10) %>% 
-  make_bar_plot()
-```
-
-3. What types of cancer have the highest increase in incidence rate over the
-period?
+### 3. Which types of cancer have the highest increase in incidence rate over the period (1994 - 2018)?
 
 Examination of crude rates:
-
-```{r, eval = TRUE, echo = FALSE}
-cancer_data_borders %>% 
-  filter(cancer_site %in% specific_cancers) %>% 
-  filter(sex == "Female") %>% 
-  filter(measurement == "CRUDE") %>%
-  group_by(cancer_site) %>% 
-  summarise(year, diff_crude_rate = value - lag(value),
-            .groups = "drop_last") %>% 
-  group_by(cancer_site) %>% 
-  summarise(mean_diff = mean(diff_crude_rate, na.rm = TRUE),
-            .groups = "drop_last") %>% 
-  slice_max(mean_diff, n = 10) %>%
-  ggplot() +
-  aes(x = cancer_site,
-      y = mean_diff) + 
-  geom_col() +
-  coord_flip() +
-  theme_bw() +
-  labs(title = "Mean increase in crude rate | Male") +
-  theme(plot.title = element_text(hjust = 0.5))
-  
-```
 
 ```{r, eval = TRUE, echo = FALSE}
 cancer_data_borders %>% 
@@ -209,7 +257,35 @@ cancer_data_borders %>%
   geom_col() +
   coord_flip() +
   theme_bw() +
-  labs(title = "Mean increase in crude rate | Male") +
+  
+  labs(x = "Cancer Type",
+       y = "Average yearly change",
+       title = "Mean increase in crude rate | Male") +
+  theme(plot.title = element_text(hjust = 0.5))
+  
+```
+
+```{r, eval = TRUE, echo = FALSE}
+cancer_data_borders %>% 
+  filter(cancer_site %in% specific_cancers) %>% 
+  filter(sex == "Female") %>% 
+  filter(measurement == "CRUDE") %>%
+  group_by(cancer_site) %>% 
+  summarise(year, diff_crude_rate = value - lag(value),
+            .groups = "drop_last") %>% 
+  group_by(cancer_site) %>% 
+  summarise(mean_diff = mean(diff_crude_rate, na.rm = TRUE),
+            .groups = "drop_last") %>% 
+  slice_max(mean_diff, n = 10) %>%
+  ggplot() +
+  aes(x = cancer_site,
+      y = mean_diff) + 
+  geom_col() +
+  coord_flip() +
+  theme_bw() +
+  labs(x = "Cancer Type",
+       y = "Average yearly change",
+       title = "Mean increase in crude rate | Female") +
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
@@ -242,13 +318,15 @@ cancer_data_borders %>%
   geom_line() +
   labs(x = "Year",
        y = "Crude Rate",
-       title = "A title you need to change later") +
+       title = "Cancer types common among men") +
   facet_wrap(~cancer_site) +
+  scale_x_continuous(breaks = c(1995,2000,2005,2010,2015)) +
   theme_bw() +
   theme(legend.position = "none")
 ```
 
-5. Which types of cancer are most prevalent among women?
+
+### 5. Which types of cancer are most prevalent among women?
 
 ```{r, eval = TRUE, echo = FALSE}
 highest_cancers_2018_female <- cancer_data_borders %>% 
@@ -275,60 +353,48 @@ cancer_data_borders %>%
   aes(x = year, y = value, group = cancer_site, colour = cancer_site) +
   geom_line() +
   facet_wrap(~cancer_site) +
+  scale_x_continuous(breaks = c(1995,2000,2005,2010,2015)) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  labs(x = "Year",
+       y = "Crude Rate",
+       title = "Cancer types common among women")
+```
+
+### Combined Plot
+
+```{r, eval = TRUE, echo = FALSE}
+highest_cancers_2018_both <- cancer_data_borders %>% 
+  filter(cancer_site %in% specific_cancers) %>% 
+  filter(measurement == "CRUDE") %>% 
+  filter(sex != "All") %>% 
+  filter(year == "2018") %>% 
+  group_by(cancer_site) %>% 
+  summarise(mean_c_rate = mean(value, na.rm = TRUE), .groups = "drop_last") %>% 
+  slice_max(mean_c_rate, n = 5) %>% 
+  select(cancer_site) %>% 
+  pull()
+```
+
+
+```{r, eval = TRUE, echo = FALSE}
+cancer_data_borders %>% 
+  filter(cancer_site %in% specific_cancers) %>% 
+  filter(cancer_site %in% highest_cancers_2018_both) %>% 
+  filter(measurement == "CRUDE") %>% 
+  filter(sex != "All") %>%
+  group_by(cancer_site) %>%
+  ggplot() +
+  aes(x = year, y = value, group = cancer_site, colour = cancer_site) +
+  geom_line() +
+  labs(x = "Year",
+       y = "Crude Rate",
+       title = "Trends in crude rate over time for common cancers for each sex") +
+  facet_grid(vars(sex), vars(cancer_site)) +
   theme_bw() +
   theme(legend.position = "none")
 ```
 
-## Results and Conclusion
 
 
-
-cancer_site = body location of cancer
-crude_rate = total number of events / population
-
-european age-standardised rate
-world age-standardised rate
-
-
-Confidence intervals for age-standardised rates (EASR and WASR) have been
-calculated using a formula which works only when numbers are sufficiently large.
-They are therefore set to 'not applicable' in the event of there being fewer
-than 20 cases.
-
-
-
-In comparing cancer incidence between areas or over time, three important
-factors must be considered—the number of people at risk, their sex and their
-age.
-
-Since the risk of developing cancer doubles with every eight or nine years of
-life, an area with an older population would be expected, all else being equal,
-to have more incident cancer cases than an area with a younger population. There
-are several different approaches available to adjust for differences in age;
-this atlas has used indirect standardization, which is the most appropriate
-method for small area comparisons, as it provides more stable rates than other
-standardization techniques, and works even if there is no population-at-risk in
-some age groups within the area (Estève et al., 1994).
-
-For each small area i, the national incidence rates for each age group j were
-applied to the population counts (N) in each age group, to calculate the total
-expected number of cancers (E) in the area. This can be compared to the number
-actually observed (O) in the area, in the form of an observed to expected ratio,
-or percentage. This is called the standardised incidence ratio, abbreviated to
-SIR. The SIR for any cancer for either men or women is,
-by definition, 1 (or 100%).
-
-
-A Standardized Incidence Ratio (SIR) is used to determine if the occurrence of
-cancer in a relatively small population is high or low. An SIR analysis can tell
-us if the number of observed cancer cases in a particular geographic area is
-higher or lower than expected, given the population and age distribution for
-that community.
-
-The SIR is obtained by dividing the observed number of cases of cancer by the
-“expected” number of cases. The expected number is the number of cases that
-would occur in a community if the disease rate in a larger reference population
-(usually the state or country) occurred in that community. Since cancer rates
-increase strongly with age, the SIR takes into account whether a community’s
-population is older or younger than the reference population.
 
