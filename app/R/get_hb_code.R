@@ -3,5 +3,5 @@ get_hb_code <- function(hb_string) {
     filter(hb_name == hb_string) %>% 
     select(hb) %>% 
     pull()
-  return(hb_code)
+  return(tail(hb_code, 1))
 }
