@@ -15,9 +15,11 @@ ui <- dashboardPage(
   dashboardBody(
     tags$head(
       tags$link(rel = "stylesheet", type = "text/css", href = "custom.css"),
-      tags$link(rel = "preconnect", href="https://fonts.gstatic.com"),
-      tags$link(rel = "stylesheet",
-                href ="https://fonts.googleapis.com/css2?family=Montserrat&display=swap")
+      tags$link(rel = "preconnect", href = "https://fonts.gstatic.com"),
+      tags$link(
+        rel = "stylesheet",
+        href ="https://fonts.googleapis.com/css2?family=Montserrat&display=swap"
+      )
     ),
     fluidRow(
       box(

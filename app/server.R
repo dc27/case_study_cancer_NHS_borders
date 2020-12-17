@@ -19,6 +19,7 @@ server <- function(input, output) {
       userIn_sex = reactive(input$sex_choice)
     )
   )
+  
   tabInput_graph <- reactive ({
     switch(input$mainPanel,
            "plot" = "plot")

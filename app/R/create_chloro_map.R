@@ -27,6 +27,7 @@ create_chloro_map <- function (data) {
                   color = "white", weight = 2,
                   opacity = 0.9, bringToFront = TRUE)) %>% 
     addLegend(pal = colorNumeric("YlOrRd", domain = hb_shapes$value),
-              values = hb_shapes$value, opacity = 0.7, title = "Cancer Incidence",
+              values = hb_shapes$value, opacity = 0.7,
+              title = "Cancer Incidence",
               position = "bottomright")
 }

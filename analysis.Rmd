@@ -1,238 +1,286 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "NHS Borders | Cancer Incidence Rates"
+output:
+  html_document:
+    df_print: paged
 ---
 
-```{r}
+```{r, eval = TRUE, echo = FALSE, message = FALSE}
+# load in the tidyverse
 library(tidyverse)
 ```
 
-
-```{r}
-cancer_data_all_scotland <- read_csv("data/raw_data/cancer_data_all_Scot.csv") %>% 
-  janitor::clean_names()
-cancer_data_by_HB <- read_csv("data/raw_data/cancer_data_by_HB.csv") %>% 
-  janitor::clean_names()
+```{r, eval = TRUE, echo = FALSE, message = FALSE}
+# read in cancer incidence data
+cancer_data_by_HB <- read_csv("data/clean_data/cancer_data_by_HB_clean.csv")
+# read in lookup tibble
 HB_lookup_tibble <- read_csv("data/raw_data/geo_HB_labels_lookup.csv") %>% 
   janitor::clean_names()
 ```
+## 1. Introduction and Aims
 
-```{r}
+### Brief
+In order to help inform the planning for provision of cancer treatment services
+in NHS Borders, we would like to gain better understanding of the incidence of
+cancer in NHS Borders.
+
+### Investigation Aims
+
+The aims of this investigation are to answer the following questions: 
+
+1. What is the trend in cancer incidence over the period?
+2. What types of cancer are the most common?
+3. What types of cancer have the highest increase in incidence rate over the
+period?
+4. Which types of cancer are most prevalent among men?
+5. Which types of cancer are most prevalent among women?
+
+## 2. Analysis
+```{r, eval = TRUE, echo = FALSE}
+# get area code for NHS Borders from lookup tibble
 borders_hb_code <- HB_lookup_tibble %>% 
   filter(hb_name == "NHS Borders") %>% 
   select(hb) %>% 
   pull()
+
+# filter cancer data for only NHS Borders Health Board
+cancer_data_borders <- cancer_data_by_HB %>%
+  filter(hb == borders_hb_code)
 ```
 
+```{r, eval = TRUE, echo = FALSE}
+# get names of specific cancer sites (ignore "All")
+specific_cancers <- cancer_data_borders %>%
+  distinct(cancer_site) %>% 
+  filter(!str_detect(cancer_site, "All")) %>% 
+  pull()
+```
 
-```{r}
-cancer_data_by_HB %>%
-  filter(hb == borders_hb_code) %>%
+```{r, eval = TRUE, echo = FALSE}
+# create function that filters the data and calculates the sum of all cancer
+# incidences for each cancer site
+generate_sum_incidences_per_cancer_site <-
+  function(data, sex = "All", year = 1994) {
+  data %>% 
+  filter(cancer_site %in% specific_cancers) %>% 
+  filter(measurement == "CRUDE") %>% 
+  filter(sex == sex) %>% 
+  filter(year >= year) %>% 
+  group_by(cancer_site) %>% 
+  summarise(total_incidences = sum(incidences_all_ages), .groups = "drop_last")
+  }
+```
+
+```{r, eval = TRUE, echo = FALSE}
+sum_incidences_per_cancer_site <- generate_sum_incidences_per_cancer_site(
+  cancer_data_borders
+)
+```
+
+### 1. What is the trend in cancer incidence over the period?
+
+The overview looks only at all cancer types. First looking at the combination of
+all sexes
+
+```{r, eval = TRUE, echo = FALSE}
+cancer_data_borders %>% 
   filter(cancer_site == "All cancer types") %>% 
   filter(sex == "All") %>% 
   ggplot() +
-  aes(x = year) +
-  geom_line(
-    aes(y = crude_rate), size = 2
+  aes(
+    x = year,
+    y = incidences_all_ages
   ) +
-  geom_ribbon(
-    aes(ymin = crude_rate_lower95pc_confidence_interval,
-        ymax = crude_rate_upper95pc_confidence_interval), fill = "grey", alpha = 0.5
-  ) +
-    geom_line(
-    aes(y = easr), colour = "blue"
-  ) +
-  geom_ribbon(
-    aes(ymin = easr_lower95pc_confidence_interval,
-        ymax = easr_upper95pc_confidence_interval), fill = "light blue", alpha = 0.2
-  ) +
-    geom_line(
-    aes(y = wasr), colour = "green"
-  ) +
-  geom_ribbon(
-    aes(ymin = wasr_lower95pc_confidence_interval,
-        ymax = wasr_upper95pc_confidence_interval), fill = "light green", alpha = 0.2
-  ) +
+  geom_line() +
+  facet_wrap(~sex) +
   theme_bw()
 ```
-```{r}
-cancer_data_tidy <- cancer_data_by_HB %>% 
-  select(-cancer_site_icd10code) %>%
-  mutate(group = row_number()) %>% 
-  rename(sir = standardised_incidence_ratio) %>% 
-  pivot_longer(cols = -c(hb:incidences_all_ages,
-                       easr_lower95pc_confidence_interval_qf,
-                       easr_upper95pc_confidence_interval_qf,
-                       wasr_lower95pc_confidence_interval_qf,
-                       wasr_upper95pc_confidence_interval_qf,
-                       group),
-               names_pattern = "([^_]*)([_a-z0-9$]*)",
-               names_to = c("measurement", "limit")) %>%
-  mutate(limit = recode(limit, "_rate" = "")) %>% 
-  mutate(limit = case_when(
-    str_detect(limit, "lower") ~ "lower_95pc_c_i",
-    str_detect(limit, "upper") ~ "upper_95pc_c_i",
-    limit == "" ~ "value",
-    TRUE ~ limit)
-  ) %>% 
-  pivot_wider(id_cols = -c(limit,value), names_from = limit,
-              values_from = value, names_repair = "check_unique") %>% 
-  mutate(measurement = str_to_upper(measurement)) %>% 
-  filter(incidences_all_ages > 20) %>% 
-  select(-easr_lower95pc_confidence_interval_qf,
-         -easr_upper95pc_confidence_interval_qf,
-         -wasr_lower95pc_confidence_interval_qf,
-         -wasr_upper95pc_confidence_interval_qf,
-         -sex_qf) %>% 
+
+And then at each sex separately:
+
+```{r, eval = TRUE, echo = FALSE}
+cancer_data_borders %>% 
   filter(cancer_site == "All cancer types") %>% 
-  filter(sex == "All")
-```
-
-```{r}
-cancer_data_crude <- cancer_data_long %>% 
-  filter(measurement == "CRUDE")
-
-cancer_data_easr <- cancer_data_long %>% 
-  filter(measurement == "EASR")
-
-cancer_data_wasr <- cancer_data_tidy %>% 
-  filter(measurement == "WASR") %>% 
-  filter(year == "1994")
-
-cancer_data_sir <- cancer_data_long %>% 
-  filter(measurement == "SIR")
-```
-
-```{r}
-init_plot <-
+  filter(sex != "All") %>% 
   ggplot() +
-  aes(x = year)
+  aes(
+    x = year,
+    y = incidences_all_ages
+  ) +
+  geom_line() +
+  facet_wrap(~sex) +
+  theme_bw()
+```
 
-make_line_plot <- function (data, plot) {
-  p <- plot +
-  geom_line(data = data,
-            aes(y = value)) +
-  geom_ribbon(data = data,
-              aes(ymin = lower_95pc_c_i,
-                  ymax = upper_95pc_c_i), alpha = 0.2)
-  return(p)
+
+### 2. What types of cancer are the most common?
+
+```{r, eval = TRUE, echo = FALSE}
+sum_incidences_per_cancer_site %>% 
+  arrange(desc(total_incidences)) %>% 
+  rename(`Cancer Site` = cancer_site,
+         `Total Incidences` = total_incidences)
+```
+
+```{r, eval = TRUE, echo = FALSE}
+make_bar_plot <- function(data) {
+  data %>% 
+    ggplot() + 
+    aes(x = cancer_site,
+        y = total_incidences) +
+    geom_col() +
+    theme_bw() + 
+    theme(axis.text.y = element_text(angle = 0, hjust = 1)) +
+    coord_flip()
 }
-
-crude_plot <- make_line_plot(cancer_data_crude, init_plot)
-
-crude_plot
-
 ```
 
-```{r}
-make_line_plot(cancer_data_easr, crude_plot)
+```{r, eval = TRUE, echo = FALSE}
+sum_incidences_per_cancer_site %>% 
+  make_bar_plot()
+```
+```{r, eval = TRUE, echo = FALSE}
+sum_incidences_per_cancer_site %>% 
+  slice_max(total_incidences, n = 10) %>% 
+  make_bar_plot()
 ```
 
-```{r}
-make_line_plot(cancer_data_wasr)
+```{r, eval = TRUE, echo = FALSE}
+sum_incidences_per_cancer_site_recent <- generate_sum_incidences_per_cancer_site(
+  cancer_data_borders,
+  year = 2009
+)
 ```
 
-```{r}
-make_line_plot(cancer_data_sir)
+```{r, eval = TRUE, echo = FALSE}
+sum_incidences_per_cancer_site_recent %>% 
+  make_bar_plot()
 ```
 
-```{r}
+```{r, eval = TRUE, echo = FALSE}
+sum_incidences_per_cancer_site_recent %>% 
+  slice_max(total_incidences, n = 10) %>% 
+  make_bar_plot()
 ```
 
+3. What types of cancer have the highest increase in incidence rate over the
+period?
 
-```{r}
-cancer_data_by_HB %>%
-  filter(hb == borders_hb_code) %>%
-  filter(cancer_site == "All cancer types") %>% 
+Examination of crude rates:
+
+```{r, eval = TRUE, echo = FALSE}
+cancer_data_borders %>% 
+  filter(cancer_site %in% specific_cancers) %>% 
   filter(sex == "Female") %>% 
+  filter(measurement == "CRUDE") %>%
+  group_by(cancer_site) %>% 
+  summarise(year, diff_crude_rate = value - lag(value),
+            .groups = "drop_last") %>% 
+  group_by(cancer_site) %>% 
+  summarise(mean_diff = mean(diff_crude_rate, na.rm = TRUE),
+            .groups = "drop_last") %>% 
+  slice_max(mean_diff, n = 10) %>%
   ggplot() +
-  aes(x = year) +
-  geom_line(
-    aes(y = standardised_incidence_ratio), colour = "red"
-  ) +
-  geom_ribbon(
-    aes(ymin = sir_lower95pc_confidence_interval,
-        ymax = sir_upper95pc_confidence_interval), fill = "coral", alpha = 0.2
-  ) +
-  theme_bw()
-```
-
-```{r}
-library(rgdal)
-```
-
-
-```{r}
-hb_shapes <- readOGR(
-  dsn ="data/shapefiles/SG_NHS_HealthBoards_2019/",
-  layer = "SG_NHS_HealthBoards_2019",
-  GDAL1_integer64_policy = TRUE)
-
-crs <- CRS("+proj=longlat +datum=WGS84")
-
-# transform shape data to plot on map
-hb_shapes_ll <- hb_shapes %>% 
-  rgeos::gSimplify(tol=25, topologyPreserve=TRUE) %>% 
-  spTransform(crs)
-
-hb_shapes@polygons <- hb_shapes_ll@polygons
-```
-
-
-```{r}
-hb_shapes@data <- hb_shapes@data %>% 
-  inner_join(cancer_data_wasr, by = c("HBCode" = "hb"))
-```
-
-```{r}
-hb_shapes@data$id <- rownames(hb_shapes@data)
-
-hb_shapes@data
-```
-
-```{r}
-library(maptools)
-```
-
-
-```{r}
-hb_shapes_points <- fortify(hb_shapes, region = "id")
-```
-
-```{r}
-hb_shapes_df = inner_join(hb_shapes_points, hb_shapes@data, by = "id")
-```
-
-```{r}
-hb_shapes_df %>% 
-  distinct(group.y)
-```
-
-```{r}
-library(plotly)
-```
-
-
-```{r}
-ggplotly(
-  hb_shapes_df %>% 
-    ggplot() +
-      aes(long, lat, group = `group.x`, fill = -value,
-          text = paste(HBName, "\n", round(value, 2), sep = "")) +
-      geom_polygon(colour = "grey20") +
-      scale_fill_distiller(type = "div", palette = "YlOrRd") +
-      labs(fill = "CRUDE RATE") +
-      theme_bw() +
-      coord_cartesian() +
-      xlim(-14, 4) + 
-      theme_void() +
-      theme(axis.ticks = element_blank()),
-  tooltip = "text"
-) %>% 
-  layout(xaxis = list(fixedrange = TRUE), yaxis = list(fixedrange = TRUE)) 
+  aes(x = cancer_site,
+      y = mean_diff) + 
+  geom_col() +
+  coord_flip() +
+  theme_bw() +
+  labs(title = "Mean increase in crude rate | Male") +
+  theme(plot.title = element_text(hjust = 0.5))
   
-
 ```
+
+```{r, eval = TRUE, echo = FALSE}
+cancer_data_borders %>% 
+  filter(cancer_site %in% specific_cancers) %>% 
+  filter(sex == "Male") %>% 
+  filter(measurement == "CRUDE") %>%
+  group_by(cancer_site) %>% 
+  summarise(year, diff_crude_rate = value - lag(value),
+            .groups = "drop_last") %>% 
+  group_by(cancer_site) %>% 
+  summarise(mean_diff = mean(diff_crude_rate, na.rm = TRUE),
+            .groups = "drop_last") %>% 
+  slice_max(mean_diff, n = 10) %>%
+  ggplot() +
+  aes(x = cancer_site,
+      y = mean_diff) + 
+  geom_col() +
+  coord_flip() +
+  theme_bw() +
+  labs(title = "Mean increase in crude rate | Male") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+### 4. Which types of cancer are most prevalent among men?
+
+```{r, eval = TRUE, echo = FALSE}
+highest_cancers_2018_male <- cancer_data_borders %>% 
+  filter(cancer_site %in% specific_cancers) %>% 
+  filter(measurement == "CRUDE") %>% 
+  filter(sex == "Male") %>% 
+  filter(year == "2018") %>% 
+  group_by(cancer_site) %>% 
+  summarise(mean_c_rate = mean(value, na.rm = TRUE), .groups = "drop_last") %>% 
+  slice_max(mean_c_rate, n = 5) %>% 
+  select(cancer_site) %>% 
+  pull()
+```
+
+
+```{r, eval = TRUE, echo = FALSE}
+cancer_data_borders %>% 
+  filter(cancer_site %in% specific_cancers) %>% 
+  filter(cancer_site %in% highest_cancers_2018_male) %>% 
+  filter(measurement == "CRUDE") %>% 
+  filter(sex == "Male") %>%
+  group_by(cancer_site) %>%
+  ggplot() +
+  aes(x = year, y = value, group = cancer_site, colour = cancer_site) +
+  geom_line() +
+  labs(x = "Year",
+       y = "Crude Rate",
+       title = "A title you need to change later") +
+  facet_wrap(~cancer_site) +
+  theme_bw() +
+  theme(legend.position = "none")
+```
+
+5. Which types of cancer are most prevalent among women?
+
+```{r, eval = TRUE, echo = FALSE}
+highest_cancers_2018_female <- cancer_data_borders %>% 
+  filter(cancer_site %in% specific_cancers) %>% 
+  filter(measurement == "CRUDE") %>% 
+  filter(sex == "Female") %>% 
+  filter(year == "2018") %>% 
+  group_by(cancer_site) %>% 
+  summarise(mean_c_rate = mean(value, na.rm = TRUE), .groups = "drop_last") %>% 
+  slice_max(mean_c_rate, n = 5) %>% 
+  select(cancer_site) %>% 
+  pull()
+```
+
+
+```{r, eval = TRUE, echo = FALSE}
+cancer_data_borders %>% 
+  filter(cancer_site %in% specific_cancers) %>% 
+  filter(cancer_site %in% highest_cancers_2018_female) %>% 
+  filter(measurement == "CRUDE") %>% 
+  filter(sex == "Female") %>%
+  group_by(cancer_site) %>%
+  ggplot() +
+  aes(x = year, y = value, group = cancer_site, colour = cancer_site) +
+  geom_line() +
+  facet_wrap(~cancer_site) +
+  theme_bw() +
+  theme(legend.position = "none")
+```
+
+## Results and Conclusion
+
 
 
 cancer_site = body location of cancer

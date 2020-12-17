@@ -24,7 +24,6 @@ add_lines <- function (data, plot) {
   return(p)
 }
 
-
 create_line_plot <- function (data, measurements) {
   plot <-
     ggplot() +
@@ -41,4 +40,3 @@ create_line_plot <- function (data, measurements) {
   # output complete plot
   return(plot)
 }
-
